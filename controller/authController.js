@@ -6,9 +6,37 @@ const otpGenerator = require("otp-generator")
 const mailer = require("../middleware/mailer")
 const { Errorhandler } = require("../middleware/errorHandler")
 require("dotenv").config();
-const regexEmail = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-const regexPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-const regexName = /^[A-Za-z\s]*$/;
+const regexEmail = process.env.regexEmail
+const regexPassword = process.env.regexPassword
+const regexName = process.env.regexName
+
+const refreshToken = async (req, res, next) => {
+    const refreshtoken = req.body.refreshtoken
+
+    if (!refreshtoken)
+        return next(new Errorhandler("No Refresh token is provided", 401))
+
+    refreshtoken.substring(7)
+
+    jwt.verify(refreshtoken, process.env.REFRESH_KEY, async (err, payload) => {
+        if (err)
+            return next(new Errorhandler("", 401));
+
+        else {
+            const id = payload._id
+            const user = await User.findById(id)
+
+            if (!user)
+                return next(new Errorhandler("User not found", 401))
+
+            const new_accesstoken = jwt.sign({ id: user._id }, process.env.ACCESS_KEY, { expiresIn: "2d" })
+            const new_refreshtoken = jwt.sign({ id: user._id }, process.env.REFRESH_KEY, { expiresIn: "5d" })
+
+            return res.status(200).json({ success: true, accesstoken: new_accesstoken, refreshtoken: new_refreshtoken })
+
+        }
+    })
+}
 
 const login = async (req, res, next) => {
     try {
@@ -17,47 +45,49 @@ const login = async (req, res, next) => {
         if (!(email && password)) {
             // can pass only one parameter in Error class 
             // return next( new Error("Email ID and Password is required"))
-            return next(new Errorhandler("Email ID and Password is not required", 400))
-
-            // return res.status(400).json({ success: false, msg: "Email ID and password is required" })
+            return next(new Errorhandler("Email ID and Password is required", 400))
         }
 
         const user = await User.findOne({ email: email.toLowerCase() })
 
         if (!user || (user && !user.is_sign_up)) {
-            return res.status(400).json({ success: false, msg: "User by this email doesn't exist" })
+            return next(new Errorhandler("User by this email doesn't exist", 400))
         }
 
         const userPassword = await bcrypt.compare(password, user.password)
 
         if (!userPassword) {
-            return res.status(400).json({ success: false, msg: "Wrong Password" })
+            return next(new Errorhandler("Wrong password", 400))
         }
 
         // generate a jwt token {data: to pass in, security key, expiry time}
-        const token = jwt.sign({ _id: user._id }, process.env.SECRET_KEY, { expiresIn: "5d" })
-        return res.status(200).json({ success: true, msg: "Welcome Back to Cinemabiz", token: token })
+        const accesstoken = jwt.sign({ _id: user._id }, process.env.ACCESS_KEY, { expiresIn: "2d" })
+
+        //generate a refresh token
+        const refreshtoken = jwt.sign({ _id: user._id }, process.env.REFRESH_KEY, { expiresIn: "5d" })
+
+        return res.status(200).json({ success: true, msg: "Welcome Back to Tweeter", accesstoken, refreshtoken })
     }
     catch (err) {
-        return res.status(500).json({ success: false, msg: err });
+        return next(err)
     }
 }
 
-const forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res, next) => {
     try {
         const { email } = req.body;
 
         if (!email) {
-            return res.status(400).json({ success: false, msg: "Email is required" })
+            return next(new Errorhandler("Email is required", 400))
         }
 
         if (!regexEmail.test(email))
-            return res.status(400).json({ success: false, msg: "Invalid Email format" })
+            return next(new Errorhandler("Invalid Email format", 400))
 
         const user = await User.findOne({ email: email.toLowerCase() })
 
         if (!user || (user && !user.is_sign_up)) {
-            return res.status(400).json({ success: false, msg: "User not found by this email" })
+            return next(new Errorhandler("User by this email doesn't exist", 400))
         }
 
         const mailedOtp = otpGenerator.generate(6,
@@ -67,8 +97,7 @@ const forgotPassword = async (req, res) => {
                 specialChars: false,
                 digits: true,
             })
-        mailer.sendOtp(email, mailedOtp)
-        console.log(mailedOtp)
+        mailer.sendMail(email, mailedOtp)
 
         const otpExpire = Date.now() + 120000;
 
@@ -80,7 +109,6 @@ const forgotPassword = async (req, res) => {
                 }
             }
         )
-        console.log(otpModel)
 
         if (otpModel.modifiedCount == 0) {
             await Otp.create({
@@ -93,60 +121,61 @@ const forgotPassword = async (req, res) => {
         return res.status(200).json({ success: true, msg: `Otp is sent successfully on ${email}` })
     }
     catch (err) {
-        return res.status(500).json({ success: false, msg: err });
+        return next(err)
     }
 }
 
-const otpVerify = async (req, res) => {
+const otpVerify = async (req, res, next) => {
     try {
         const { email, otp } = req.body;
 
         if (!email)
-            return res.status(400).json({ success: false, msg: "Email is not given" })
+            return next(new Errorhandler("Email is not given", 400))
 
         if (!otp)
-            return res.status(400).json({ success: false, msg: "Otp is required" });
+            return next(new Errorhandler("Otp is required", 400))
 
         const emailOtp = await Otp.findOne({ email: email.toLowerCase() })
         const user = await User.findOne({ email: email.toLowerCase() })
 
-        if (!user || (user && !user.is_sign_up)) {
-            return res.status(400).json({ success: false, msg: "User not found by this email" })
-        }
+        if (!user || (user && !user.is_sign_up))
+            return next(new Errorhandler("User by this email doesn't exist", 400))
 
         if (emailOtp.otp != otp)
-            return res.status(400).json({ success: false, msg: "Incorrect Otp" })
+            return next(new Errorhandler("Incorrect Otp", 400))
 
         if (emailOtp.expiry <= Date.now())
-            return res.status(400).json({ success: false, msg: "Otp expired" })
+            return next(new Errorhandler("Otp expired", 400))
 
         await Otp.deleteOne({ email: email.toLowerCase() })
 
-        const token = jwt.sign({ _id: user._id }, process.env.SECRET_KEY, { expiresIn: "5d" })
-        return res.status(200).json({ success: true, msg: "Otp verified successfully", token: token })
+        const token = jwt.sign({ _id: user._id }, process.env.SECRET_KEY, { expiresIn: '1h' })
+        return res.status(200).json({ success: true, msg: "Otp verified successfully", token })
     }
     catch (err) {
-        return res.status(500).json({ success: false, msg: err })
+        return next(err)
     }
 }
 
-const resetPassword = async (req, res) => {
+const resetPassword = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
         if (!password)
-            return res.status(400).json({ success: false, msg: "Password is required" })
+            return next(new Errorhandler("Password is required", 400))
 
         if (!regexPassword.test(password))
-            return res.status(400).json({ success: false, msg: "Invalid Password format" })
+            return next(new Errorhandler("Invalid Password format", 400))
 
         const user1 = await User.findOne({ email: email.toLowerCase() })
 
         if (!user1 || (user1 && !user1.is_sign_up))
-            return res.status(400).json({ success: false, msg: "User doesn't found by this email" })
+            return next(new Errorhandler("User by this email doesn't exist", 400))
 
-        if (user1.password == password)
-            return res.status(400).json({ success: false, msg: "Password is same as previous" })
+        const check_pass = await bcrypt.compare(password, user1.password)
+
+        if (check_pass)
+            return next(new Errorhandler("Password is same as previous", 400))
 
         const pass = await bcrypt.hash(password, 12)
 
@@ -155,11 +184,11 @@ const resetPassword = async (req, res) => {
                 password: pass
             }
         });
-
-        return res.status(200).json({ success: true, msg: "Password changed successfully" })
+        const token = jwt.sign({ _id: user._id }, process.env.ACCESS_KEY, { expiresIn: "5d" })
+        return res.status(200).json({ success: true, msg: "Password reset successfully", token })
     }
     catch (err) {
-        return res.status(500).json({ success: false, msg: err })
+        return next(err)
     }
 }
 
@@ -168,15 +197,15 @@ const signUp = async (req, res, next) => {
         const { email } = req.body;
 
         if (!(email))
-        return res.status(400).json({ success: false, msg: "Email is required" })
+            return next(new Errorhandler("Email is required", 400))
 
         if (!regexEmail.test(email))
-        return res.status(400).json({ success: false, msg: "Invalid Email format" })
+            return next(new Errorhandler("Invalid Email format", 400))
 
         const user = await User.findOne({ email: email.toLowerCase() })
 
         if (user && user.is_sign_up)
-            return res.status(400).json({ success: false, msg: "User by this email already exists" })
+            return next(new Errorhandler("User by this email already exists", 400))
 
         const mailedOtp = otpGenerator.generate(6, {
             upperCaseAlphabets: false,
@@ -187,7 +216,7 @@ const signUp = async (req, res, next) => {
 
         const otpExpire = Date.now() + 120000;
 
-        mailer.sendOtp(email, mailedOtp)
+        mailer.sendMail(email, mailedOtp)
 
         const otpSent = await Otp.updateOne({ email }, {
             $set: {
@@ -206,31 +235,31 @@ const signUp = async (req, res, next) => {
         return res.status(200).json({ success: true, msg: "Please enter the Otp sent on your email" })
     }
     catch (err) {
-        return res.status(500).json({ success: false, msg: err })
+        return next(new Errorhandler(err, 500))
     }
 }
 
-const signVerify = async (req, res) => {
+const signVerify = async (req, res, next) => {
     try {
         const { email, otp } = req.body;
 
         if (!email)
-            return res.status(400).json({ success: false, msg: "Email is not given" })
+            return next(new Errorhandler("Email is not given", 400))
 
         if (!otp)
-            return res.status(400).json({ success: false, msg: "Otp is required" });
+            return next(new Errorhandler("Otp is required", 400))
 
         const emailOtp = await Otp.findOne({ email: email.toLowerCase() })
         const prev_user = await User.findOne({ email: email.toLowerCase() })
 
         if (!emailOtp)
-            return res.status(400).json({ success: false, msg: "User not found by this email" })
+            return next(new Errorhandler("User not found by this email", 400))
 
         if (emailOtp.otp != otp)
-            return res.status(400).json({ success: false, msg: "Incorrect Otp" })
+            return next(new Errorhandler("Incorrect Otp", 400))
 
         if (emailOtp.expiry <= Date.now())
-            return res.status(400).json({ success: false, msg: "Otp expired" })
+            return next(new Errorhandler("Otp expired", 400))
 
         let user;
         if (!prev_user) {
@@ -245,35 +274,43 @@ const signVerify = async (req, res) => {
 
         await Otp.deleteOne({ email: email.toLowerCase() })
 
-        const token = jwt.sign({ _id: user._id }, process.env.SECRET_KEY_TWO, { expiresIn: "2h" })
+        const token = jwt.sign({ _id: user._id }, process.env.SECRET_KEY, { expiresIn: "1h" })
         return res.status(200).json({ success: true, msg: "Otp verified successfully", token: token })
     }
     catch (err) {
-        return res.status(500).json({ success: false, msg: err })
+        return next(new Errorhandler(err))
     }
 }
 
-const signUpTwo = async (req, res) => {
+const signUpTwo = async (req, res, next) => {
     try {
         const { username, name, email, password } = req.body;
 
         if (!email)
-            return res.status(400).json({ success: false, msg: "Email is not given" })
+            return next(new Errorhandler("Email is not given", 400))
 
-        if (!(username && password))
-            return res.status(400).json({ success: false, msg: "All inputs are required" })
+        const find_user = await User.findOne({ email: email.toLowerCase() })
 
-        if (!regexName.test(username) || !regexName.test(name))
-            return res.status(400).json({ success: false, msg: "Incorrect Name format" })
+        if (find_user && find_user.is_sign_up)
+            return next(new Errorhandler("Account already made", 400))
+
+        if (!find_user)
+            return next(new Errorhandler("User not found by this email", 400))
+
+        if (!(username && name && password))
+            return next(new Errorhandler("All inputs are required", 400))
+
+        if (!regexName.test(name))
+            return next(new Errorhandler("Incorrect Name format", 400))
 
         if (!regexPassword.test(password))
-            return res.status(400).json({ success: false, msg: "Incorrect password format" })
+            return next(new Errorhandler("Incorrect password format", 400))
 
         const same_user_name = await User.findOne({
             username: username.toLowerCase()
         })
         if (same_user_name)
-            return res.status(400).json({ success: false, msg: "This Username already exists" })
+            return next(new Errorhandler("This Username already exists", 400))
 
         const pass = await bcrypt.hash(password, 12)
 
@@ -286,13 +323,15 @@ const signUpTwo = async (req, res) => {
             }
         })
 
-        const token = jwt.sign({ _id: user._id }, process.env.SECRET_KEY, { expiresIn: "5d" })
+        const accesstoken = jwt.sign({ _id: user._id }, process.env.ACCESS_KEY, { expiresIn: "2d" })
 
-        return res.status(200).json({ success: true, msg: "Welcome to Cinemabiz, User", token: token })
+        const refreshtoken = jwt.sign({ _id: user._id }, process.env.REFRESH_KEY, { expiresIn: "5d" })
+
+        return res.status(200).json({ success: true, msg: `Welcome to Tweeter, ${name}`, accesstoken, refreshtoken })
 
     }
     catch (err) {
-        return res.status(500).json({ success: false, msg: err })
+        return next(err)
     }
 }
 
@@ -303,5 +342,6 @@ module.exports = {
     resetPassword,
     signUp,
     signVerify,
-    signUpTwo
+    signUpTwo,
+    refreshToken
 }
