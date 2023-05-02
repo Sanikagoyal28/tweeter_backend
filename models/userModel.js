@@ -21,9 +21,16 @@ const userSchema = new mongoose.Schema({
         type: String,
         unique: true
     },
+    displaypic: {
+        type: String
+    },
     tweets: {
         type: ObjectId,
-        ref: 'tweets'
+        ref: 'tweet'
+    },
+    liked:{
+        type: ObjectId,
+        ref: 'liked' 
     }
 })
 

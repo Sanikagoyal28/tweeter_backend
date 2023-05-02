@@ -12,7 +12,7 @@ const authToken = async (req, res, next) => {
         // const newToken = token.split(" ")[1]
         const newToken = token.substring(7)
 
-        const verifyToken = jwt.verify(newToken, process.env.SECRET_KEY, async (err, payload) => {
+        const verifyToken = jwt.verify(newToken, process.env.ACCESS_KEY, async (err, payload) => {
             if (err)
                 return res.status(400).json({ success: false, msg: "Invalid or Token is expired" })
 
@@ -23,6 +23,8 @@ const authToken = async (req, res, next) => {
 
                 if (!user)
                     return res.status(400).json({ success: false, msg: "User by this email does not exists" })
+
+                req.user = user
 
                 next();
             }
@@ -46,7 +48,7 @@ const authOtpToken = async (req, res, next) => {
         // console.log(token)
         // console.log(newToken)
 
-        const verifyToken = jwt.verify(newToken, process.env.SECRET_KEY_TWO, async (err, payload) => {
+        const verifyToken = jwt.verify(newToken, process.env.SECRET_KEY, async (err, payload) => {
 
             if (err) {
                 return res.status(400).json({ success: false, msg: "Invalid or Token is expired" })

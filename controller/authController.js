@@ -9,6 +9,7 @@ require("dotenv").config();
 const regexEmail = process.env.regexEmail
 const regexPassword = process.env.regexPassword
 const regexName = process.env.regexName
+const {validEmail, validName, validPassword} = require("../middleware/regexValidate")
 
 const refreshToken = async (req, res, next) => {
     const refreshtoken = req.body.refreshtoken
@@ -81,7 +82,7 @@ const forgotPassword = async (req, res, next) => {
             return next(new Errorhandler("Email is required", 400))
         }
 
-        if (!regexEmail.test(email))
+        if (!validEmail(email))
             return next(new Errorhandler("Invalid Email format", 400))
 
         const user = await User.findOne({ email: email.toLowerCase() })
@@ -164,7 +165,7 @@ const resetPassword = async (req, res, next) => {
         if (!password)
             return next(new Errorhandler("Password is required", 400))
 
-        if (!regexPassword.test(password))
+        if (!validPassword(password))
             return next(new Errorhandler("Invalid Password format", 400))
 
         const user1 = await User.findOne({ email: email.toLowerCase() })
@@ -199,7 +200,7 @@ const signUp = async (req, res, next) => {
         if (!(email))
             return next(new Errorhandler("Email is required", 400))
 
-        if (!regexEmail.test(email))
+        if (!validEmail(email))
             return next(new Errorhandler("Invalid Email format", 400))
 
         const user = await User.findOne({ email: email.toLowerCase() })
@@ -300,10 +301,10 @@ const signUpTwo = async (req, res, next) => {
         if (!(username && name && password))
             return next(new Errorhandler("All inputs are required", 400))
 
-        if (!regexName.test(name))
+        if (!validName(name))
             return next(new Errorhandler("Incorrect Name format", 400))
 
-        if (!regexPassword.test(password))
+        if (!validPassword(password))
             return next(new Errorhandler("Incorrect password format", 400))
 
         const same_user_name = await User.findOne({

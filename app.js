@@ -1,15 +1,18 @@
-
 const express = require("express");
 const mongoose = require("mongoose");
-const {router} = require("./routes/authRoutes")
-const errorHandler = require('./middleware/errorHandler')
+const { errorHandler } = require('./middleware/errorHandler')
+const router = require('./routes/index')
 
 require('dotenv').config();
 
 //creating an express server
 const app = express();
 
+// to parse json body data
 app.use(express.json())
+
+//to parse the form-data
+app.use(express.urlencoded({ extended: true }))
 
 //connection with database
 mongoose.connect(process.env.URI)
@@ -23,5 +26,4 @@ mongoose.connect(process.env.URI)
     })
 
 app.use(router)
-app.use(errorHandler.Errorhandler)
-app.use(errorHandler.errorHandler)
+app.use(errorHandler)
