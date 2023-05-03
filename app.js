@@ -25,5 +25,7 @@ mongoose.connect(process.env.URI)
         console.log(err)
     })
 
+app.use(express.static(__dirname + '/public'))
+app.use('upload', express.static('upload'))
 app.use(router)
 app.use(errorHandler)

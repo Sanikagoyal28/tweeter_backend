@@ -21,7 +21,7 @@ const refreshToken = async (req, res, next) => {
 
     jwt.verify(refreshtoken, process.env.REFRESH_KEY, async (err, payload) => {
         if (err)
-            return next(new Errorhandler("", 401));
+            return next(new Errorhandler("Token is expired or Ivalid token", 401));
 
         else {
             const id = payload._id

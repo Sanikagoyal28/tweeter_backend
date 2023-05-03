@@ -17,13 +17,21 @@ const tweetSchema = new mongoose.Schema({
     video: {
         type: "String"
     },
-    retweet:{
-        type:ObjectId,
-        ref:'tweet'
+    retweet: {
+        type: ObjectId,
+        ref: 'tweet'
     },
-    like_count:{
-        type:Number,
-        default:0
+    like_count: {
+        type: Number,
+        default: 0
+    },
+    is_liked: {
+        type: Boolean,
+        default: false
+    },
+    is_boomark: {
+        type: Boolean,
+        default: false
     }
 })
 

@@ -30,7 +30,11 @@ const userSchema = new mongoose.Schema({
     },
     liked:{
         type: ObjectId,
-        ref: 'liked' 
+        ref: 'tweet' 
+    },
+    bookmark:{
+        type:ObjectId,
+        ref:'tweet'
     }
 })
 

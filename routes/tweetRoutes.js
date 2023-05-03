@@ -16,5 +16,6 @@ tweetRoutes.post("/create_retweet", authToken, multerUpload.fields([
 ]), TweetController.createRetweet)
 
 tweetRoutes.post("/like_tweet", authToken, TweetController.likeTweet)
+tweetRoutes.post("/bookmark_tweet", authToken, TweetController.bookmarkTweet)
 
 module.exports = { tweetRoutes }

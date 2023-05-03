@@ -1,11 +1,6 @@
 const { Errorhandler } = require("../middleware/errorHandler")
 const User = require("../models/userModel")
 const Tweet = require("../models/tweetModel")
-const multer = require("multer")
-const multerUpload = require("../middleware/multer")
-const Liked = require("../models/likeTweetModel")
-
-// const uploadFile 
 
 const createTweet = async (req, res, next) => {
     try {
@@ -123,21 +118,22 @@ const likeTweet = async (req, res, next) => {
             return next(new Errorhandler("No tweet by this ID found", 400))
 
         // unlike tweet: find for that tweet in liked model if already present then delete it and make a bool
-        const liked_tweet = await Liked.find().populate({ path: 'tweetid' })
-        // console.log(liked_tweet)
+        const liked_tweet = await User.find({ _id: userid, liked: tweetid })
 
         let unliked = false;
-        for (var i = 0; i < liked_tweet.length; i++) {
-            if (liked_tweet[i].tweetid._id.equals(tweetid)) {
-                unliked = true;
-                break;
-            }
+        if (liked_tweet.length > 0) {
+            unliked = true;
         }
-        // console.log(unliked)
 
         if (unliked) {
-            await Liked.deleteOne({ tweetid: tweetid })
+            //delete that tweet from user model
+            await User.updateOne({ _id: userid }, {
+                $pull: {
+                    liked: tweetid
+                }
+            })
 
+            // decrement that tweet count
             await Tweet.findByIdAndUpdate(tweetid, {
                 $inc: {
                     like_count: -1
@@ -145,14 +141,17 @@ const likeTweet = async (req, res, next) => {
             })
         }
         else {
-            await Liked.create({
-                userid: userid,
-                tweetid: tweetid
-            })
-
+            //increment the count
             await Tweet.findByIdAndUpdate(tweetid, {
                 $inc: {
                     like_count: 1
+                }
+            })
+
+            // add to user model
+            await User.findByIdAndUpdate(userid, {
+                $addToSet: {
+                    liked: tweetid
                 }
             })
         }
@@ -166,10 +165,64 @@ const likeTweet = async (req, res, next) => {
     }
 }
 
+const bookmarkTweet = async (req, res, next) => {
+    try {
+        const { tweetid } = req.body;
+        const user = req.user
+        const userid = user._id
+
+        if (!user)
+            return next(new Errorhandler("User not found", 400))
+
+        if (user && !user.is_sign_up)
+            return next(new Errorhandler("User is not Authenticated", 400))
+
+        if (!tweetid)
+            return next(new Errorhandler("Tweet ID is not given", 400))
+
+        const tweet = await Tweet.findById(tweetid)
+
+        if (!tweet)
+            return next(new Errorhandler("No tweet by this ID found", 400))
+
+        const bm_tweet = await User.find({ _id: userid, bookmark: tweetid })
+
+        let unmarked = false;
+        if (bm_tweet.length > 0) {
+            unmarked = true;
+        }
+
+        if (unmarked) {
+            await User.updateOne({ _id: userid }, {
+                $pull: {
+                    bookmark: tweetid
+                }
+            })
+        }
+        else {
+
+            await User.findByIdAndUpdate(userid, {
+                $addToSet: {
+                    bookmark: tweetid
+                }
+            })
+        }
+        if (unmarked)
+            return res.status(201).json({ msg: "Bookmark removed", success: true })
+        else
+            return res.status(201).json({ msg: "Bookmark marked", success: true })
+    }
+    catch (err) {
+        return next(new Errorhandler(err))
+    }
+
+}
+
 module.exports = {
     createTweet,
     createRetweet,
-    likeTweet
+    likeTweet,
+    bookmarkTweet
 }
 
 // get my tweets : go in user module return all the tweets(populated) having that userid 
