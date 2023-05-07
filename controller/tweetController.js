@@ -4,16 +4,18 @@ const Tweet = require("../models/tweetModel")
 
 const createTweet = async (req, res, next) => {
     try {
-        console.log(req.file)
+
         const { text } = req.body
         const files = req.file ? req.file : null
+        const x = req.files.image[0];
+        const y = req.files.video[0];
 
         // identify user from token
         const user = req.user
         const userid = user._id
 
         if (!user)
-            return next(new Errorhandler("User not found", 400))
+            return next(new Errorhandler("User not like_found", 400))
 
         if (user && !user.is_sign_up)
             return next(new Errorhandler("User is not Authenticated", 400))
@@ -22,17 +24,17 @@ const createTweet = async (req, res, next) => {
             return next(new Errorhandler("Text message is required", 400))
 
         let image = "", video = "";
+
+        console.log(req.file)
         if (files) {
-            const x = files[0].fieldname;
+            const x = files.fieldname;
 
             if (x === "image") {
-                image = originalname
+                image = 'uploads/' + files.originalname
             }
             if (x === "video") {
-                video = originalname
+                video = 'uploads/' + files.originalname
             }
-
-            console.log(files)
         }
 
         const new_tweet = await Tweet.create({
@@ -56,13 +58,15 @@ const createTweet = async (req, res, next) => {
 }
 
 const createRetweet = async (req, res, next) => {
+
     const { tweetid, text } = req.body
+    const files = req.file ? req.file : null
 
     const user = req.user
     const userid = user._id
 
     if (!user)
-        return next(new Errorhandler("User not found", 400))
+        return next(new Errorhandler("User not like_found", 400))
 
     if (user && !user.is_sign_up)
         return next(new Errorhandler("User is not Authenticated", 400))
@@ -76,10 +80,24 @@ const createRetweet = async (req, res, next) => {
     const tweet = await Tweet.findById(tweetid)
 
     if (!tweet)
-        return next(new Errorhandler("No tweet by this ID found", 400))
+        return next(new Errorhandler("No tweet by this ID like_found", 400))
 
     //upload image or video
-    let image = null, video = null;
+
+    let image = "", video = "";
+    if (files) {
+        const x = files[0].fieldname;
+
+        if (x === "image") {
+            image = originalname
+        }
+        if (x === "video") {
+            video = originalname
+        }
+
+        console.log(files)
+    }
+
     const new_tweet = {
         user_id: userid,
         text: '',
@@ -88,9 +106,7 @@ const createRetweet = async (req, res, next) => {
     }
 
     await Tweet.findByIdAndUpdate(new_tweet._id, {
-        $addToSet: {
-            retweet: tweetid
-        }
+        retweet: tweetid
     })
 
     return res.status(201).json({ msg: "Retweeted successfully", success: true })
@@ -104,7 +120,7 @@ const likeTweet = async (req, res, next) => {
         const userid = user._id
 
         if (!user)
-            return next(new Errorhandler("User not found", 400))
+            return next(new Errorhandler("User not like_found", 400))
 
         if (user && !user.is_sign_up)
             return next(new Errorhandler("User is not Authenticated", 400))
@@ -115,7 +131,7 @@ const likeTweet = async (req, res, next) => {
         const tweet = await Tweet.findById(tweetid)
 
         if (!tweet)
-            return next(new Errorhandler("No tweet by this ID found", 400))
+            return next(new Errorhandler("No tweet by this ID like_found", 400))
 
         // unlike tweet: find for that tweet in liked model if already present then delete it and make a bool
         const liked_tweet = await User.find({ _id: userid, liked: tweetid })
@@ -139,6 +155,7 @@ const likeTweet = async (req, res, next) => {
                     like_count: -1
                 }
             })
+
         }
         else {
             //increment the count
@@ -172,7 +189,7 @@ const bookmarkTweet = async (req, res, next) => {
         const userid = user._id
 
         if (!user)
-            return next(new Errorhandler("User not found", 400))
+            return next(new Errorhandler("User not like_found", 400))
 
         if (user && !user.is_sign_up)
             return next(new Errorhandler("User is not Authenticated", 400))
@@ -183,7 +200,7 @@ const bookmarkTweet = async (req, res, next) => {
         const tweet = await Tweet.findById(tweetid)
 
         if (!tweet)
-            return next(new Errorhandler("No tweet by this ID found", 400))
+            return next(new Errorhandler("No tweet by this ID like_found", 400))
 
         const bm_tweet = await User.find({ _id: userid, bookmark: tweetid })
 
@@ -215,14 +232,83 @@ const bookmarkTweet = async (req, res, next) => {
     catch (err) {
         return next(new Errorhandler(err))
     }
-
 }
 
+const getBookmark = async (req, res, next) => {
+    try {
+        const user = req.user
+        const userid = user._id
+
+        if (!user)
+            return next(new Errorhandler("User not like_found", 400))
+
+        if (user && !user.is_sign_up)
+            return next(new Errorhandler("User is not Authenticated", 400))
+
+        const bookmarks = await User.findOne({ _id: userid }, {
+            __v: 0, email: 0, password: 0, is_sign_up: 0, name: 0, username: 0,
+            displaypic: 0, liked: 0, tweets: 0, _id: 0
+        }).populate('bookmark');
+        console.log(bookmarks)
+        return res.status(201).json({ success: true, msg: "Bookmarked tweets", bookmarks })
+    }
+    catch (err) {
+        return next(new Errorhandler(err))
+    }
+}
+
+const feeds = async (req, res, next) => {
+    try {
+        const user = req.user
+        const userid = user._id
+
+        if (!user)
+            return next(new Errorhandler("User not like_found", 400))
+
+        if (user && !user.is_sign_up)
+            return next(new Errorhandler("User is not Authenticated", 400))
+
+        const tweets = await Tweet.find({}).populate('retweet')
+
+        const liked_tweet = await User.find({ _id: userid }, {
+            __v: 0, email: 0, password: 0, is_sign_up: 0, name: 0, username: 0,
+            displaypic: 0, bookmark: 0, tweets: 0, _id: 0
+        })
+
+        const likes = []
+        const bookmarks = []
+        for (const tweet of tweets) {
+            const like_found = await User.findOne({ _id: userid, liked: tweet._id })
+
+            if (like_found) {
+                likes.push(true)
+            }
+            else {
+                likes.push(false)
+            }
+
+            const bm_found = await User.findOne({ _id: userid, bookmark: tweet._id })
+
+            if (bm_found) {
+                bookmarks.push(true)
+            }
+            else {
+                bookmarks.push(false)
+            }
+        }
+        return res.status(201).json({ msg: "success", success: true, tweets, likes, bookmarks })
+    }
+    catch (err) {
+        return next(new Errorhandler(err))
+    }
+}
 module.exports = {
     createTweet,
     createRetweet,
     likeTweet,
-    bookmarkTweet
+    bookmarkTweet,
+    getBookmark,
+    feeds
 }
 
 // get my tweets : go in user module return all the tweets(populated) having that userid 

@@ -24,15 +24,56 @@ const tweetSchema = new mongoose.Schema({
     like_count: {
         type: Number,
         default: 0
-    },
-    is_liked: {
-        type: Boolean,
-        default: false
-    },
-    is_boomark: {
-        type: Boolean,
-        default: false
     }
 })
 
 module.exports = mongoose.model("tweet", tweetSchema)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

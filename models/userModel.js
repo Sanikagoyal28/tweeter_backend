@@ -24,18 +24,32 @@ const userSchema = new mongoose.Schema({
     displaypic: {
         type: String
     },
-    tweets: {
+    date: {
+        type: String
+    },
+    bio: {
+        type: String
+    },
+    tweets: [{
         type: ObjectId,
         ref: 'tweet'
-    },
-    liked:{
+    }],
+    liked: [{
         type: ObjectId,
-        ref: 'tweet' 
-    },
-    bookmark:{
-        type:ObjectId,
-        ref:'tweet'
-    }
+        ref: 'tweet'
+    }],
+    bookmark: [{
+        type: ObjectId,
+        ref: 'tweet'
+    }],
+    followers: [{
+        type: ObjectId,
+        ref: 'user'
+    }],
+    following: [{
+        type: ObjectId,
+        ref: 'user'
+    }]
 })
 
 module.exports = mongoose.model("user", userSchema)

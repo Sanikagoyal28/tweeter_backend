@@ -7,12 +7,15 @@ const storage = multer.diskStorage({
         cb(null, "./upload")
     },
     filename: (req, file, cb) => {
+        console.log(file)
+        console.log(req.files)
+        req.file = file;
         cb(null, `${Date.now()} - ${file.originalname}`)
     }
 })
 
 const validateFiles = (req, file, cb) => {
-    if (file.mimetype == "image/jpeg" || file.mimetype == "image/png" || file.mimetype == "image/jpg")
+    if (file.mimetype == "image/jpeg" || file.mimetype == "image/png" || file.mimetype == "image/jpg" || file.mimetype == "video/mp4")
         cb(null, true)
     else
         cb(null, false)
