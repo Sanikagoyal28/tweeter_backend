@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema({
     bio: {
         type: String
     },
+    my_profile:{
+        type:Boolean,
+        default:false
+    },
     tweets: [{
         type: ObjectId,
         ref: 'tweet'

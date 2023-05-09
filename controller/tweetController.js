@@ -6,9 +6,11 @@ const createTweet = async (req, res, next) => {
     try {
 
         const { text } = req.body
+        console.log(req.files)
+
         const files = req.file ? req.file : null
-        const x = req.files.image[0];
-        const y = req.files.video[0];
+        // const x = req.filesimage[0];
+        // const y = req.filesvideo[0];
 
         // identify user from token
         const user = req.user
@@ -217,7 +219,6 @@ const bookmarkTweet = async (req, res, next) => {
             })
         }
         else {
-
             await User.findByIdAndUpdate(userid, {
                 $addToSet: {
                     bookmark: tweetid
@@ -249,8 +250,31 @@ const getBookmark = async (req, res, next) => {
             __v: 0, email: 0, password: 0, is_sign_up: 0, name: 0, username: 0,
             displaypic: 0, liked: 0, tweets: 0, _id: 0
         }).populate('bookmark');
-        console.log(bookmarks)
-        return res.status(201).json({ success: true, msg: "Bookmarked tweets", bookmarks })
+
+        const tweets = await Tweet.find({})
+        const liked = []
+        const bookmarked = []
+        for (const tweet of tweets) {
+            const like_found = await User.findOne({ _id: userid, liked: tweet._id })
+
+            if (like_found) {
+                liked.push(true)
+            }
+            else {
+                liked.push(false)
+            }
+
+            const bm_found = await User.findOne({ _id: userid, bookmark: tweet._id })
+
+            if (bm_found) {
+                bookmarked.push(true)
+            }
+            else {
+                bookmarked.push(false)
+            }
+        }
+
+        return res.status(201).json({ success: true, msg: "Bookmarked tweets", bookmarks, liked, bookmarked })
     }
     catch (err) {
         return next(new Errorhandler(err))
@@ -261,24 +285,31 @@ const feeds = async (req, res, next) => {
     try {
         const user = req.user
         const userid = user._id
+        const { count } = req.params
+
+        let start = count * 10;
+        let end = start + 10;
 
         if (!user)
-            return next(new Errorhandler("User not like_found", 400))
+            return next(new Errorhandler("User not found", 400))
 
         if (user && !user.is_sign_up)
             return next(new Errorhandler("User is not Authenticated", 400))
 
         const tweets = await Tweet.find({}).populate('retweet')
 
-        const liked_tweet = await User.find({ _id: userid }, {
-            __v: 0, email: 0, password: 0, is_sign_up: 0, name: 0, username: 0,
-            displaypic: 0, bookmark: 0, tweets: 0, _id: 0
-        })
-
+        const feeds = []
+        for (var i = start; i < end; i++) {
+            if (tweets[i])
+                feeds.push(tweets[i])
+            else
+                feeds.push('')
+        }
+      
         const likes = []
         const bookmarks = []
-        for (const tweet of tweets) {
-            const like_found = await User.findOne({ _id: userid, liked: tweet._id })
+        for (const feed of feeds) {
+            const like_found = await User.findOne({ _id: userid, liked: feed._id })
 
             if (like_found) {
                 likes.push(true)
@@ -287,7 +318,7 @@ const feeds = async (req, res, next) => {
                 likes.push(false)
             }
 
-            const bm_found = await User.findOne({ _id: userid, bookmark: tweet._id })
+            const bm_found = await User.findOne({ _id: userid, bookmark: feed._id })
 
             if (bm_found) {
                 bookmarks.push(true)
@@ -296,7 +327,7 @@ const feeds = async (req, res, next) => {
                 bookmarks.push(false)
             }
         }
-        return res.status(201).json({ msg: "success", success: true, tweets, likes, bookmarks })
+        return res.status(201).json({ msg: "success", success: true, feeds, likes, bookmarks })
     }
     catch (err) {
         return next(new Errorhandler(err))

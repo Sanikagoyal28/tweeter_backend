@@ -15,8 +15,18 @@ const viewProfile = async (req, res, next) => {
         if (!userid)
             return next(new Errorhandler("User ID is not provided", 400))
 
-        const profile = await User.findById(userid, { password: 0, bookmark: 0 })
-            .populate('tweets').populate('liked').populate('followers').populate('following')
+        let profile;
+        console.log(userid, user.id)
+        if (userid === user._id) {
+            profile = await User.findByIdAndUpdate(userid, { password: 0, bookmark: 0 }, {
+                my_profile: true
+            })
+                .populate('tweets').populate('liked').populate('followers').populate('following')
+        }
+        else {
+            profile = await User.findById(userid, { password: 0, bookmark: 0 })
+                .populate('tweets').populate('liked').populate('followers').populate('following')
+        }
 
         return res.status(201).json({ success: true, profile })
     }
