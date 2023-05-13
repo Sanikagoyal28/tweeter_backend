@@ -50,18 +50,6 @@ const userSchema = new mongoose.Schema({
     following: [{
         type: ObjectId,
         ref: 'user'
-    }],
-    replies: [{
-        type: ObjectId,
-        ref: 'comment'
-    }],
-    liked_comm: [{
-        type: ObjectId,
-        ref: 'comment'
-    }],
-    bm_comm: [{
-        type: ObjectId,
-        ref: 'comment'
     }]
 }, { timestamps: true })
 

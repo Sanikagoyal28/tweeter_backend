@@ -4,7 +4,7 @@ const { Errorhandler } = require("../middleware/errorHandler")
 const viewProfile = async (req, res, next) => {
     try {
         const user = req.user
-        const userid = req.params.id
+        const { username } = req.query
 
         if (!user)
             return next(new Errorhandler("User not like_found", 400))
@@ -12,29 +12,38 @@ const viewProfile = async (req, res, next) => {
         if (user && !user.is_sign_up)
             return next(new Errorhandler("User is not Authenticated", 400))
 
-        if (!userid)
-            return next(new Errorhandler("User ID is not provided", 400))
+        if (!username)
+            return next(new Errorhandler("Username is not provided", 400))
 
         let profile;
-        if (userid === user._id) {
-            profile = await User.updateOne({ _id: userid }, { password: 0 }, {
+        if (username === user.username) {
+            profile = await User.findOneAndUpdate({ username }, {
                 my_profile: true
             })
-                .populate('tweets').populate('liked').populate('followers').populate('following')
+                .populate({
+                    path: 'tweets liked',
+                    populate: {
+                        path: 'user_id'
+                }
+                }).populate('followers').populate('following')
         }
         else {
-            profile = await User.findOneAndUpdate({ _id: userid }, { password: 0 }, {
+            profile = await User.findOneAndUpdate({ username }, { __v: 0 }, {
                 my_profile: false
             })
-                .populate('tweets').populate('liked').populate('followers').populate('following')
+                .populate({
+                    path: 'tweets liked',
+                    populate: {
+                        path: 'user_id'
+                }
+                }).populate('followers').populate('following')
         }
 
-        const tweets = await User.find({ _id: userid }, { _id: 0, tweets: 1 })
-        console.log(tweets)
         const likes = []
         const bookmarks = []
-        for (const tweet of tweets) {
-            const like_found = await User.findOne({ _id: userid, liked: tweet._id })
+
+        for (var i = 0; i < profile.tweets.length; i++) {
+            const like_found = await User.findOne({ username, liked: profile.tweets[i]._id })
 
             if (like_found) {
                 likes.push(true)
@@ -43,7 +52,7 @@ const viewProfile = async (req, res, next) => {
                 likes.push(false)
             }
 
-            const bm_found = await User.findOne({ _id: userid, bookmark: tweet._id })
+            const bm_found = await User.findOne({ username, bookmark: profile.tweets[i]._id })
 
             if (bm_found) {
                 bookmarks.push(true)

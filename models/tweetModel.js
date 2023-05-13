@@ -27,12 +27,19 @@ const tweetSchema = new mongoose.Schema({
     },
     replies:[{
         type:ObjectId,
-        ref:'comment'
+        ref:'tweet'
     }],
     reply_count:{
         type:Number,
         default:0
-    }
+    },
+    is_reply:{
+        type:Boolean,
+        default:false
+    },
+    replying_to:[{
+        type:String
+    }]
 })
 
 module.exports = mongoose.model("tweet", tweetSchema)

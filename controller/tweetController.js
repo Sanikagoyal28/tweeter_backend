@@ -82,10 +82,9 @@ const createRetweet = async (req, res, next) => {
     const tweet = await Tweet.findById(tweetid)
 
     if (!tweet)
-        return next(new Errorhandler("No tweet by this ID like_found", 400))
+        return next(new Errorhandler("No tweet by this ID found", 400))
 
     //upload image or video
-
     let image = "", video = "";
     if (files) {
         const x = files[0].fieldname;
@@ -247,15 +246,17 @@ const getBookmark = async (req, res, next) => {
             return next(new Errorhandler("User is not Authenticated", 400))
 
         const bookmarks = await User.findOne({ _id: userid }, {
-            __v: 0, email: 0, password: 0, is_sign_up: 0, name: 0, username: 0,
-            displaypic: 0, liked: 0, tweets: 0, _id: 0
-        }).populate('bookmark');
+            bookmark: 1
+        }).populate({
+            path: 'bookmark', populate: {
+                path: 'user_id'
+            }
+        });
 
-        const tweets = await Tweet.find({})
         const liked = []
         const bookmarked = []
-        for (const tweet of tweets) {
-            const like_found = await User.findOne({ _id: userid, liked: tweet._id })
+        for (var i = 0; i < bookmarks.bookmark.length; i++) {
+            const like_found = await User.findOne({ _id: userid, liked: bookmarks.bookmark[i]._id })
 
             if (like_found) {
                 liked.push(true)
@@ -264,7 +265,7 @@ const getBookmark = async (req, res, next) => {
                 liked.push(false)
             }
 
-            const bm_found = await User.findOne({ _id: userid, bookmark: tweet._id })
+            const bm_found = await User.findOne({ _id: userid, bookmark: bookmarks.bookmark[i]._id })
 
             if (bm_found) {
                 bookmarked.push(true)
@@ -296,7 +297,11 @@ const feeds = async (req, res, next) => {
         if (user && !user.is_sign_up)
             return next(new Errorhandler("User is not Authenticated", 400))
 
-        const tweets = await Tweet.find({}).populate('retweet')
+        const tweets = await Tweet.find({ is_reply: false }).populate({
+            path: 'retweet', populate: {
+                path: 'user_id'
+            }
+        }).populate('user_id')
 
         const feeds = []
         for (var i = start; i < end; i++) {
@@ -346,13 +351,17 @@ const getTweet = async (req, res, next) => {
         if (!tweetid)
             return next(new Errorhandler("Tweet ID is not given", 400))
 
-        const tweet = await Tweet.findOne({ _id: tweetid }, { __v: 0 }).populate('replies').populate('user_id', 'name, username, displaypic')
+        const tweet = await Tweet.findOne({ _id: tweetid }, { __v: 0, is_reply: 0, replying_to: 0 }).populate({
+            path: 'replies', populate: {
+                path: 'user_id'
+            }
+        }).populate('user_id', 'name, username, displaypic')
 
         const likes = []
         const bookmarks = []
 
         for (var i = 0; i < tweet.replies.length; i++) {
-            const like_found = await User.findOne({ _id: userid, liked_comm: tweet.replies[i]._id })
+            const like_found = await User.findOne({ _id: userid, liked: tweet.replies[i]._id })
 
             if (like_found) {
                 likes.push(true)
@@ -361,7 +370,7 @@ const getTweet = async (req, res, next) => {
                 likes.push(false)
             }
 
-            const bm_found = await User.findOne({ _id: userid, bm_comm: tweet.replies[i]._id })
+            const bm_found = await User.findOne({ _id: userid, bookmark: tweet.replies[i]._id })
 
             if (bm_found) {
                 bookmarks.push(true)

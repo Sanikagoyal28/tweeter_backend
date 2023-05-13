@@ -10,5 +10,4 @@ router.use('/auth', authRoutes)
 router.use('/tweet', tweetRoutes)
 router.use('/profile', profileRoutes)
 router.use("/reply", commRoutes)
-
 module.exports = router 
