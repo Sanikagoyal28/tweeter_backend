@@ -24,15 +24,12 @@ const userSchema = new mongoose.Schema({
     displaypic: {
         type: String
     },
-    date: {
-        type: String
-    },
     bio: {
         type: String
     },
-    my_profile:{
-        type:Boolean,
-        default:false
+    my_profile: {
+        type: Boolean,
+        default: false
     },
     tweets: [{
         type: ObjectId,
@@ -53,7 +50,19 @@ const userSchema = new mongoose.Schema({
     following: [{
         type: ObjectId,
         ref: 'user'
+    }],
+    replies: [{
+        type: ObjectId,
+        ref: 'comment'
+    }],
+    liked_comm: [{
+        type: ObjectId,
+        ref: 'comment'
+    }],
+    bm_comm: [{
+        type: ObjectId,
+        ref: 'comment'
     }]
-})
+}, { timestamps: true })
 
 module.exports = mongoose.model("user", userSchema)

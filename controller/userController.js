@@ -16,19 +16,44 @@ const viewProfile = async (req, res, next) => {
             return next(new Errorhandler("User ID is not provided", 400))
 
         let profile;
-        console.log(userid, user.id)
         if (userid === user._id) {
-            profile = await User.findByIdAndUpdate(userid, { password: 0, bookmark: 0 }, {
+            profile = await User.updateOne({ _id: userid }, { password: 0 }, {
                 my_profile: true
             })
                 .populate('tweets').populate('liked').populate('followers').populate('following')
         }
         else {
-            profile = await User.findById(userid, { password: 0, bookmark: 0 })
+            profile = await User.findOneAndUpdate({ _id: userid }, { password: 0 }, {
+                my_profile: false
+            })
                 .populate('tweets').populate('liked').populate('followers').populate('following')
         }
 
-        return res.status(201).json({ success: true, profile })
+        const tweets = await User.find({ _id: userid }, { _id: 0, tweets: 1 })
+        console.log(tweets)
+        const likes = []
+        const bookmarks = []
+        for (const tweet of tweets) {
+            const like_found = await User.findOne({ _id: userid, liked: tweet._id })
+
+            if (like_found) {
+                likes.push(true)
+            }
+            else {
+                likes.push(false)
+            }
+
+            const bm_found = await User.findOne({ _id: userid, bookmark: tweet._id })
+
+            if (bm_found) {
+                bookmarks.push(true)
+            }
+            else {
+                bookmarks.push(false)
+            }
+        }
+
+        return res.status(201).json({ success: true, profile, likes, bookmarks })
     }
     catch (err) {
         return next(new Errorhandler(err))

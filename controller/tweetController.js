@@ -305,7 +305,7 @@ const feeds = async (req, res, next) => {
             else
                 feeds.push('')
         }
-      
+
         const likes = []
         const bookmarks = []
         for (const feed of feeds) {
@@ -333,13 +333,91 @@ const feeds = async (req, res, next) => {
         return next(new Errorhandler(err))
     }
 }
+
+const getTweet = async (req, res, next) => {
+    try {
+        const user = req.user
+        const userid = user._id
+        const { tweetid } = req.params
+
+        if (!user)
+            return next(new Errorhandler("User not found", 400))
+
+        if (!tweetid)
+            return next(new Errorhandler("Tweet ID is not given", 400))
+
+        const tweet = await Tweet.findOne({ _id: tweetid }, { __v: 0 }).populate('replies').populate('user_id', 'name, username, displaypic')
+
+        const likes = []
+        const bookmarks = []
+
+        for (var i = 0; i < tweet.replies.length; i++) {
+            const like_found = await User.findOne({ _id: userid, liked_comm: tweet.replies[i]._id })
+
+            if (like_found) {
+                likes.push(true)
+            }
+            else {
+                likes.push(false)
+            }
+
+            const bm_found = await User.findOne({ _id: userid, bm_comm: tweet.replies[i]._id })
+
+            if (bm_found) {
+                bookmarks.push(true)
+            }
+            else {
+                bookmarks.push(false)
+            }
+        }
+
+        return res.status(201).json({ success: true, tweet, likes, bookmarks })
+    }
+    catch (err) {
+        return next(new Errorhandler(err))
+    }
+}
+
+const deleteTweet = async (req, res, next) => {
+    try {
+        const user = req.user
+        const userid = user._id
+        const { tweetid } = req.params
+
+        if (!user)
+            return next(new Errorhandler("User not found", 400))
+
+        if (!tweetid)
+            return next(new Errorhandler("Tweet ID is not given", 400))
+
+        const tweet = await Tweet.findById(tweetid)
+        if (!tweet)
+            return next(new Errorhandler("Tweet not found", 400))
+
+        await Tweet.deleteOne({ _id: tweetid })
+
+        await User.findOneAndUpdate({ _id: userid }, {
+            $pull: {
+                tweets: tweetid
+            }
+        })
+
+        return res.status(201).json({ success: true, msg: "Tweet deleted successfully" })
+    }
+    catch (err) {
+        return next(new Errorhandler(err))
+    }
+}
+
 module.exports = {
     createTweet,
     createRetweet,
     likeTweet,
     bookmarkTweet,
     getBookmark,
-    feeds
+    feeds,
+    deleteTweet,
+    getTweet
 }
 
 // get my tweets : go in user module return all the tweets(populated) having that userid 
